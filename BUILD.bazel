@@ -172,7 +172,12 @@ cc_library(
 cc_shared_library(
     name = "solib",
     shared_lib_name = "python/libcppjit.so",
-    user_link_flags = ["-Wl,-Bsymbolic-functions"],
+    user_link_flags = [
+        "-Wl,-Bsymbolic-functions",
+        # Bazel omits the soname when shared_lib_name carries a directory;
+        # CMake always sets one, so set it back for artifact parity.
+        "-Wl,-soname,libcppjit.so",
+    ],
     deps = [":solib_lib"],
 )
 
@@ -209,6 +214,26 @@ stage_files(
     srcs = ["@llvm//:clang_resource_files"],
     out_dir = "python/cppjit_backend/lib/clang",
     path_anchor = "clang",
+)
+
+# The wheel payload as one tree: everything under python/ re-rooted at
+# site_packages/, which is what `pip install .` writes into site-packages.
+# Same inputs as :data plus the pure-Python sources, so the layout the tests
+# exercise and the layout an installer ships stay one thing.
+stage_files(
+    name = "site_packages",
+    srcs = [
+        ":solib",
+        ":staged_clang_resource_headers",
+        ":staged_cppinterop_headers",
+        ":staged_cppinterop_solib",
+        ":staged_cpyrt_headers",
+    ] + glob([
+        "python/cppjit/**/*.py",
+        "python/cppjit_backend/**/*.py",
+    ]),
+    out_dir = "site_packages",
+    path_anchor = "python",
 )
 
 # Convenience aggregate of the runtime artifacts the tests load.
