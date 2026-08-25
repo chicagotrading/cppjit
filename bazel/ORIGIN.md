@@ -19,9 +19,12 @@ sibling repos resolve via ORIGIN_RUNFILES_ROOT (defs.bzl), e.g.
 `"--gcc-toolchain=" + ORIGIN_RUNFILES_ROOT + "/" + repo_name("@gcc")`.
 The expanded args carry literal `..` components; clang handles them fine.
 
-Note: no loader in this repo expands `${ORIGIN}` today. ORIGIN_RUNFILES_ROOT
-stays exported for consumers that build such args, but a consumer that needs the
-token resolved must expand it itself before the args reach the interpreter.
+`libcppjit.so` expands the token itself, in
+`expandOriginInInterpreterArgs()` (`src/interop/interop_wrapper.cxx`): it
+rewrites `CPPINTEROP_EXTRA_INTERPRETER_ARGS` before CreateInterpreter reads it.
+A consumer therefore passes the token through verbatim and does not expand it.
+A process that never loads `libcppjit.so` (a C++ client of CppInterOp alone)
+gets no expansion, so it must write absolute or cwd-relative args.
 
 # Standalone build
 
