@@ -164,3 +164,8 @@ def _jit_resolves_std_filesystem():
 
 CAN_JIT_STD_FILESYSTEM = _jit_resolves_std_filesystem()
 IS_VALGRIND = True if os.getenv("IS_VALGRIND") else False
+
+# A template argument passed by name (a template name, or a named constant in
+# place of an integer literal) needs a CppInterOp that resolves the name. The
+# named template-parameter API arrives with the resolving version.
+HAS_NAMED_TEMPLATE_ARGS = hasattr(cppjit.gbl.Cpp, "GetTemplateParameterKind")
