@@ -1,0 +1,40 @@
+module(
+    name = "cppjit",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "cppjit_bazel", version = "0.1.0")
+local_path_override(
+    module_name = "cppjit_bazel",
+    path = "bazel",
+)
+
+bazel_dep(name = "cppinterop", version = "0.1.0")
+local_path_override(
+    module_name = "cppinterop",
+    path = "../CppInterOp",
+)
+
+bazel_dep(name = "rules_python", version = "1.5.1")
+
+# @llvm comes from the local LLVM/Clang tree selected by LLVM_DIR.
+llvm = use_extension("@cppjit_bazel//:llvm.bzl", "llvm")
+
+# Match the CMake build's CMAKE_CXX_STANDARD. A mixed standard across the
+# libcppjit / libclangCppInterOp boundary silently changes inline bodies.
+llvm.config(cxx_std = "c++20")
+use_repo(llvm, llvm = "cppjit_llvm")
+
+# Opt in to the centralized clang toolchain from cppjit_bazel (standalone build).
+register_toolchains("@llvm//:cc_toolchain")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "cppjit_test_deps",
+    python_version = "3.12",
+    requirements_lock = "//:requirements_bazel.txt",
+)
+use_repo(pip, "cppjit_test_deps")
