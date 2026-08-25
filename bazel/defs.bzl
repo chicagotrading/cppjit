@@ -30,7 +30,8 @@ def repo_rloc(repo, is_self = False):
 # shared_lib_name), so TWO ups reach the runfiles root where sibling repos live.
 # Consumers join this with repo_name() to write cwd-independent interpreter
 # args:  ORIGIN_RUNFILES_ROOT + "/" + repo_name("@gcc") + "/..."
-# No loader in this repo expands the token today; see ORIGIN.md.
+# libcppjit.so expands the token before CreateInterpreter reads the args, so
+# pass it through verbatim; see ORIGIN.md.
 ORIGIN_RUNFILES_ROOT = "${ORIGIN}/../.."
 
 # True when this module is built standalone (main repo, repository_name() == "@").
