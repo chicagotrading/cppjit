@@ -1,17 +1,42 @@
 from __future__ import print_function
 
 import os
+import shutil
 import subprocess
 import sys
 
 import py
+import pytest
 
 currpath = py.path.local(__file__).dirpath()
 
+_NO_TOOLCHAIN = "no host make and C++ compiler to build the test dictionary"
 
-def setup_make(targetname):
-    if os.getenv("CPPJIT_TEST_SKIP_MAKE", False):
+# A build system that supplies the dictionaries itself sets
+# CPPJIT_TEST_SKIP_MAKE, so no host toolchain is needed.
+HAS_PREBUILT_DICTIONARIES = bool(os.getenv("CPPJIT_TEST_SKIP_MAKE", False))
+
+# Otherwise test/Makefile builds them here. g++ is make's default $(CXX), which
+# is what the Makefile recipe runs.
+HAS_HOST_TOOLCHAIN = bool(
+    shutil.which("make") and shutil.which(os.environ.get("CXX") or "g++")
+)
+
+# Decorate the individual tests that load a dictionary in a module whose other
+# tests need none, and call setup_make(..., optional=True) from that module.
+needs_dictionary = pytest.mark.skipif(
+    not (HAS_PREBUILT_DICTIONARIES or HAS_HOST_TOOLCHAIN), reason=_NO_TOOLCHAIN
+)
+
+
+def setup_make(targetname, optional=False):
+    if HAS_PREBUILT_DICTIONARIES:
         return
+
+    if not HAS_HOST_TOOLCHAIN:
+        if optional:
+            return
+        pytest.skip(_NO_TOOLCHAIN, allow_module_level=True)
 
     popen = subprocess.Popen(
         ["make", targetname + "Dict.so"],
