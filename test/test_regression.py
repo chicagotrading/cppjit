@@ -1637,3 +1637,28 @@ class TestREGRESSION:
 
         # ...nor leave the interpreter unable to compile a later call wrapper
         assert ns.probe(41) == 42
+
+    def test52_str_fallback_without_ostream_insertion(self):
+        """str() of an instance with no operator<< used to crash.
+
+        With no ``cling`` namespace in the interpreter, the pretty-print
+        fallback dereferenced the failed ``cppjit.gbl.cling`` lookup. The
+        crash makes a plain reproducer impossible, so this asserts the fixed
+        behavior: fall back to the generic repr.
+        """
+
+        import cppjit
+
+        cppjit.cppdef(r"""
+        namespace StrFallback {
+            struct Bare { int x; };
+        }""")
+
+        b = cppjit.gbl.StrFallback.Bare()
+
+        s = str(b)
+        assert "Bare" in s
+
+        # the cached no-pretty-print path must stay stable and error-free
+        assert str(b) == s
+        assert repr(b)

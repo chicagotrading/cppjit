@@ -875,17 +875,22 @@ static PyObject* op_str(CPPInstance* self) {
     if (!printValue) {
       PyObject* gbl =
           PyDict_GetItemString(PySys_GetObject((char*)"modules"), "cppjit.gbl");
-      PyObject* cl = PyObject_GetAttrString(gbl, (char*)"cling");
-      printValue = PyObject_GetAttrString(cl, (char*)"printValue");
-      Py_DECREF(cl);
+      // no cling namespace exists unless user code declares one
+      PyObject* cl =
+          gbl ? PyObject_GetAttrString(gbl, (char*)"cling") : nullptr;
+      printValue =
+          cl ? PyObject_GetAttrString(cl, (char*)"printValue") : nullptr;
+      Py_XDECREF(cl);
       // gbl is borrowed
       if (printValue) {
         Py_DECREF(printValue); // make borrowed
         if (!PyCallable_Check(printValue))
           printValue = nullptr; // unusable ...
       }
-      if (!printValue) // unlikely
+      if (!printValue) {
+        PyErr_Clear();
         ScopeFlagSet(self, CPPScope::kNoPrettyPrint);
+      }
     }
 
     if (printValue) {
