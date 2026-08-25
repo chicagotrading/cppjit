@@ -84,6 +84,10 @@ class TestTEMPLATES:
         assert cppjit.gbl.nt_templ_args[1]() == 1
         assert cppjit.gbl.nt_templ_args[256]() == 256
 
+        # negative literals are values, not types
+        assert cppjit.gbl.nt_templ_args[-1]() == -1
+        assert cppjit.gbl.nt_templ_args[-256]() == -256
+
     def test03_templated_function(self):
         """Templated global and static functions lookup and calls"""
 
