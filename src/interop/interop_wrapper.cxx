@@ -74,7 +74,9 @@ static inline bool is_integral(std::string& s) {
     s = "1";
     return true;
   }
-  return !s.empty() && std::find_if(s.begin(), s.end(), [](unsigned char c) {
+  // allow a leading minus (negative literal)
+  auto begin = s.begin() + (s.size() > 1 && s[0] == '-' ? 1 : 0);
+  return !s.empty() && std::find_if(begin, s.end(), [](unsigned char c) {
                          return !std::isdigit(c);
                        }) == s.end();
 }
