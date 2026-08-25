@@ -276,12 +276,36 @@ def macro(cppm):
     raise ValueError("Failed to evaluate macro %s", cppm)
 
 
+def _dlopen_reason(name):
+    """Ask the loader why `name` will not load; Cpp::LoadLibrary drops the reason."""
+
+    # NOW, not LAZY: an unresolved symbol must fail here, before any global ctor runs
+    RTLD_NOW = 0x2
+    try:
+        libc = ctypes.CDLL(None)
+        libc.dlopen.restype = ctypes.c_void_p
+        libc.dlopen.argtypes = [ctypes.c_char_p, ctypes.c_int]
+        libc.dlclose.argtypes = [ctypes.c_void_p]
+        libc.dlerror.restype = ctypes.c_char_p
+        libc.dlerror()  # discard any stale message
+        handle = libc.dlopen(os.fsencode(name), RTLD_NOW)
+        if handle:
+            libc.dlclose(handle)
+            return ""
+        reason = libc.dlerror()
+    except Exception:
+        return ""
+    return reason.decode("utf-8", "replace") if reason else ""
+
+
 def load_library(name):
     """Explicitly load a shared library."""
     with _stderr_capture() as err:
         result = gbl.Cpp.LoadLibrary(name, True)
     if result == False:  # noqa: E712
-        raise RuntimeError('Could not load library "%s": %s' % (name, err.err))
+        raise RuntimeError(
+            'Could not load library "%s": %s' % (name, err.err or _dlopen_reason(name))
+        )
 
     return True
 
