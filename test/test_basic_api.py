@@ -4,7 +4,7 @@ import tempfile
 
 import py
 from pytest import mark, raises
-from support import IS_LINUX, IS_MAC, setup_make
+from support import IS_LINUX, IS_MAC, needs_dictionary, setup_make
 
 # reuse the example01
 currpath = py.path.local(__file__).dirpath()
@@ -12,7 +12,8 @@ test_dct = str(currpath.join("cpp/example01Dict"))
 
 
 def setup_module(mod):
-    setup_make("example01")
+    # only test03_add_library_path loads the dictionary
+    setup_make("example01", optional=True)
 
 
 class TestBASICAPI:
@@ -45,6 +46,7 @@ class TestBASICAPI:
         assert cppjit.cppdef("namespace test02_NS { int x = 42; }")
         assert cppjit.gbl.test02_NS.x == 42
 
+    @needs_dictionary
     def test03_add_library_path(self):
         import cppjit
 
