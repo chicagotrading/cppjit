@@ -511,6 +511,15 @@ static bool is_identifier(std::string_view s) {
          std::all_of(s.begin() + 1, s.end(), is_valid_body);
 };
 
+// A template argument carried by name needs a CppInterOp that resolves the
+// name; an older one reads it as an integer literal and aborts. The named
+// template-parameter API arrives with the resolving version.
+static bool supportsNamedTemplateArgs() {
+  static const bool Supported =
+      dlGetProcAddress("GetTemplateParameterKind") != nullptr;
+  return Supported;
+}
+
 // returns true if no new type was added.
 bool interop::AppendTypesSlow(const std::string& name,
                               std::vector<Cpp::TemplateArgInfo>& types,
@@ -545,6 +554,31 @@ bool interop::AppendTypesSlow(const std::string& name,
   // outside the query scope, e.g. `typedef Foo Bar;` at TU consulted
   // from a method on Foo).
   if (is_identifier(name)) {
+    // true/false are identifier-shaped value literals.
+    if (name == "true" || name == "false") {
+      types.emplace_back(Cpp::GetType("bool").data,
+                         strdup(name == "true" ? "1" : "0"));
+      return false;
+    }
+    if (supportsNamedTemplateArgs()) {
+      TCppScope_t named = parent ? Cpp::GetNamed(name, parent) : nullptr;
+      if (!named)
+        named = Cpp::GetNamed(name);
+      // The identifier may name a non-type entity (constexpr variable, enum
+      // constant); pass its qualified name so Sema gets an expression, not the
+      // entity's type.
+      if (named && (Cpp::IsVariable(named) || Cpp::IsEnumConstant(named))) {
+        types.emplace_back(Cpp::GetTypeFromScope(named).data,
+                           strdup(Cpp::GetQualifiedCompleteName(named).c_str()));
+        return false;
+      }
+      // Template name (template-template arg): no type; carried by name.
+      if (named && Cpp::IsTemplate(named)) {
+        types.emplace_back(nullptr,
+                           strdup(Cpp::GetQualifiedCompleteName(named).c_str()));
+        return false;
+      }
+    }
     TCppType_t type = parent ? Cpp::GetType(name, parent) : nullptr;
     if (!type)
       type = Cpp::GetType(name);
@@ -614,16 +648,31 @@ bool interop::AppendTypesSlow(const std::string& name,
     }
 
     if (!type) {
+      // Qualified template name (template-template arg).
+      if (supportsNamedTemplateArgs()) {
+        if (TCppScope_t named = GetEnumFromCompleteName(i)) {
+          if (Cpp::IsTemplate(named)) {
+            types.emplace_back(
+                nullptr, strdup(Cpp::GetQualifiedCompleteName(named).c_str()));
+            continue;
+          }
+        }
+      }
       types.clear();
       return true;
     }
 
     if (is_integral(i))
       integral_value = strdup(i.c_str());
-    if (TCppScope_t scope = GetEnumFromCompleteName(i))
+    if (TCppScope_t scope = GetEnumFromCompleteName(i)) {
       if (Cpp::IsEnumConstant(scope))
         integral_value =
             strdup(std::to_string(Cpp::GetEnumConstantValue(scope)).c_str());
+      // A variable is a non-type argument; pass its name (see the identifier
+      // path).
+      else if (supportsNamedTemplateArgs() && Cpp::IsVariable(scope))
+        integral_value = strdup(Cpp::GetQualifiedCompleteName(scope).c_str());
+    }
     types.emplace_back(type.data, integral_value);
   }
   return false;
