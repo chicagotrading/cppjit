@@ -9,9 +9,9 @@ code works for wheels and Bazel alike.
 
 Each file lands at <out_dir>/<path remainder after the first 'path_anchor/'
 component>. E.g. srcs = [@cppinterop//:headers], path_anchor = "include",
-out_dir = "python/cppjit_backend/include" maps
+out_dir = "python/cppjit/interop/include" maps
   .../cppinterop+/include/CppInterOp/CppInterOp.h
-  -> python/cppjit_backend/include/CppInterOp/CppInterOp.h
+  -> python/cppjit/interop/include/CppInterOp/CppInterOp.h
 and works for generated files (the tblgen'd .inc headers) too, since the
 anchor is matched in short_path.
 """
