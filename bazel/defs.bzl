@@ -26,13 +26,13 @@ def repo_rloc(repo, is_self = False):
 
 # ${ORIGIN} stands for the directory of libcppjit.so itself (ELF-$ORIGIN
 # semantics -- no build-system content in the runtime code). Under Bazel that
-# directory is always <runfiles root>/<repo>/python (fixed by the solib's
-# shared_lib_name), so TWO ups reach the runfiles root where sibling repos live.
-# Consumers join this with repo_name() to write cwd-independent interpreter
-# args:  ORIGIN_RUNFILES_ROOT + "/" + repo_name("@gcc") + "/..."
+# directory is always <runfiles root>/<repo>/python/cppjit (fixed by the solib's
+# shared_lib_name), so THREE ups reach the runfiles root where sibling repos
+# live. Consumers join this with repo_name() to write cwd-independent
+# interpreter args:  ORIGIN_RUNFILES_ROOT + "/" + repo_name("@gcc") + "/..."
 # libcppjit.so expands the token before CreateInterpreter reads the args, so
 # pass it through verbatim; see ORIGIN.md.
-ORIGIN_RUNFILES_ROOT = "${ORIGIN}/../.."
+ORIGIN_RUNFILES_ROOT = "${ORIGIN}/../../.."
 
 # True when this module is built standalone (main repo, repository_name() == "@").
 def is_main_repo(current_repo):
