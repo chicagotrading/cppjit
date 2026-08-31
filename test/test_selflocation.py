@@ -7,10 +7,15 @@ class TestSELFLOCATION:
         locate CppInterOp, the cpyrt API headers and clang's builtin headers
         from libcppjit.so's own location alone."""
 
-        for var in ('CPPJIT_API_PATH', 'CPLUS_INCLUDE_PATH', 'LD_LIBRARY_PATH',
-                    'RUNFILES_DIR', 'RUNFILES_MANIFEST_FILE'):
+        for var in (
+            "CPPJIT_API_PATH",
+            "CPLUS_INCLUDE_PATH",
+            "LD_LIBRARY_PATH",
+            "RUNFILES_DIR",
+            "RUNFILES_MANIFEST_FILE",
+        ):
             os.environ.pop(var, None)
-        os.chdir('/')
+        os.chdir("/")
 
         import cppjit
 

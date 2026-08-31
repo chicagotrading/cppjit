@@ -22,7 +22,9 @@ import sys
 import sysconfig
 
 _real = os.path.join(
-    sys.base_prefix, "include", "python" + sysconfig.get_python_version(),
+    sys.base_prefix,
+    "include",
+    "python" + sysconfig.get_python_version(),
 )
 if os.path.isdir(_real):
     sysconfig.get_config_vars()  # force the cache to populate
@@ -31,11 +33,12 @@ if os.path.isdir(_real):
 # Rewrite cwd-relative "../" runfiles segments to absolute $RUNFILES_DIR paths.
 _runfiles = os.environ.get("RUNFILES_DIR")
 if _runfiles:
+
     def _anchor(value):
         parts = []
         for seg in value.split(os.pathsep):
             if seg.startswith("../"):
-                seg = os.path.join(_runfiles, seg[len("../"):])
+                seg = os.path.join(_runfiles, seg[len("../") :])
             parts.append(seg)
         return os.pathsep.join(parts)
 

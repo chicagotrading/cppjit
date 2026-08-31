@@ -568,14 +568,15 @@ bool interop::AppendTypesSlow(const std::string& name,
       // constant); pass its qualified name so Sema gets an expression, not the
       // entity's type.
       if (named && (Cpp::IsVariable(named) || Cpp::IsEnumConstant(named))) {
-        types.emplace_back(Cpp::GetTypeFromScope(named).data,
-                           strdup(Cpp::GetQualifiedCompleteName(named).c_str()));
+        types.emplace_back(
+            Cpp::GetTypeFromScope(named).data,
+            strdup(Cpp::GetQualifiedCompleteName(named).c_str()));
         return false;
       }
       // Template name (template-template arg): no type; carried by name.
       if (named && Cpp::IsTemplate(named)) {
-        types.emplace_back(nullptr,
-                           strdup(Cpp::GetQualifiedCompleteName(named).c_str()));
+        types.emplace_back(
+            nullptr, strdup(Cpp::GetQualifiedCompleteName(named).c_str()));
         return false;
       }
     }
