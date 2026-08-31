@@ -2,6 +2,9 @@ name: Lint
 
 on:
   workflow_dispatch:
+  # ctc-master needs its own CI run so lint drift surfaces here, not on the next PR.
+  push:
+    branches: [ctc-master]
   pull_request:
     paths:
       - '**.h'

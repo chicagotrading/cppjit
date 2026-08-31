@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    # ctc-master needs its own CI run so lint and test drift surface here, not on the next PR.
+    branches: [master, main, ctc-master]
   pull_request:
 
 permissions:
@@ -15,22 +16,18 @@ concurrency:
 
 jobs:
   build-test:
-    name: ${{ matrix.os }}/llvm${{ matrix.llvm }}/py${{ matrix.py }}/c++${{ matrix.cxx }}${{ matrix.vg && '/vg' || '' }}${{ matrix.flavor == 'cling' && '/cling' || '' }}
+    name: ${{ matrix.os }}/llvm${{ matrix.llvm }}/py${{ matrix.py }}/c++${{ matrix.cxx }}${{ matrix.vg && '/vg' || '' }}
     strategy:
       fail-fast: false
       # Mirrors CppInterOp's cppyy PR cells: clang-repl on the same OS/arch/LLVM
-      # /valgrind combos at Python 3.14, plus a cling cell and a C++23 cell
-      # (test_cpp23features runs only there). Breadth (3.12/3.13, C++17, LLVM
-      # 20, arm) lives in nightly.
+      # /valgrind combos at Python 3.14, plus a C++23 cell (test_cpp23features
+      # runs only there). Breadth (3.12/3.13, C++17, LLVM 20, arm) lives in
+      # nightly. The llvm22 and cling cells live in build-test-tracking below.
       matrix:
         include:
           - { os: ubuntu-24.04,   llvm: '21', flavor: system, py: '3.14', cxx: '20', vg: true }
-          - { os: ubuntu-24.04,   llvm: '22', flavor: '',     py: '3.14', cxx: '20' }
-          - { os: ubuntu-24.04,   llvm: '22', flavor: '',     py: '3.14', cxx: '23' }
           - { os: macos-26,       llvm: '21', flavor: system, py: '3.14', cxx: '20' }
           - { os: macos-26-intel, llvm: '21', flavor: system, py: '3.14', cxx: '20' }
-          # cling backend, against the cached llvm-root (cling-llvm22) recipe cell.
-          - { os: ubuntu-24.04,   llvm: '22', flavor: cling,  flavor_version: cling-llvm22, py: '3.14', cxx: '20' }
     uses: compiler-research/ci-workflows/.github/workflows/cppjit.yml@main
     with:
       # CppInterOp is pinned in CppJIT's cmake to a commit compatible
@@ -40,15 +37,39 @@ jobs:
       os: ${{ matrix.os }}
       llvm-version: ${{ matrix.llvm }}
       llvm-flavor: ${{ matrix.flavor }}
-      llvm-flavor-version: ${{ matrix.flavor_version || '' }}
       python-version: ${{ matrix.py }}
       cxx-standard: ${{ matrix.cxx }}
       valgrind: ${{ matrix.vg || false }}
       run-xfail-crashing-tests: true
 
+  # llvm22 and cling track upstream LLVM ahead of our pin, so they can go red
+  # on their own. A reusable-workflow job cannot take continue-on-error, so
+  # this job stays split from build-test: a red cell here reads as tracking
+  # noise, not a blocker on the PR's own change.
+  build-test-tracking:
+    name: ${{ matrix.os }}/llvm${{ matrix.llvm }}/py${{ matrix.py }}/c++${{ matrix.cxx }}${{ matrix.flavor == 'cling' && '/cling' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, llvm: '22', flavor: '',    py: '3.14', cxx: '20' }
+          - { os: ubuntu-24.04, llvm: '22', flavor: '',    py: '3.14', cxx: '23' }
+          - { os: ubuntu-24.04, llvm: '22', flavor: cling, flavor_version: cling-llvm22, py: '3.14', cxx: '20' }
+    uses: compiler-research/ci-workflows/.github/workflows/cppjit.yml@main
+    with:
+      cppjit-repo: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      cppjit-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      os: ${{ matrix.os }}
+      llvm-version: ${{ matrix.llvm }}
+      llvm-flavor: ${{ matrix.flavor }}
+      llvm-flavor-version: ${{ matrix.flavor_version || '' }}
+      python-version: ${{ matrix.py }}
+      cxx-standard: ${{ matrix.cxx }}
+      run-xfail-crashing-tests: true
+
   report:
     if: ${{ always() && github.event_name == 'pull_request' }}
-    needs: build-test
+    needs: [build-test, build-test-tracking]
     runs-on: ubuntu-latest
     permissions:
       contents: read
