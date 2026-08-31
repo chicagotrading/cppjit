@@ -869,7 +869,9 @@ static PyObject* op_str(CPPInstance* self) {
   }
 
   // 2. Cling's pretty printing (not done through backend for performance
-  // reasons)
+  // reasons). Cling only: clang-repl has no cling namespace to look up, so the
+  // whole path compiles out and str() falls through to the generic repr.
+#ifdef CPPJIT_USE_CLING
   if (!ScopeFlagCheck(self, CPPScope::kNoPrettyPrint)) {
     static PyObject* printValue = nullptr;
     if (!printValue) {
@@ -934,6 +936,7 @@ static PyObject* op_str(CPPInstance* self) {
     // if not available/specialized, don't try again
     ScopeFlagSet(self, CPPScope::kNoPrettyPrint);
   }
+#endif // CPPJIT_USE_CLING
 
   // 3. Generic printing as done in op_repr
   return op_repr(self);
