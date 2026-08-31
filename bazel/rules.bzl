@@ -137,8 +137,12 @@ def _cppinterop_test_common(name, srcs, extra_copts, extra_deps, data, env, incl
         includes = includes,
     )
 
-def cppinterop_cc_test(name, srcs, extra_copts = [], extra_deps = [], extra_dynamic_deps = [], data = [], env = {}):
-    """A CppInterOp gtest linking clangCppInterOp via dynamic_deps."""
+def cppinterop_cc_test(name, srcs, extra_copts = [], extra_deps = [], extra_dynamic_deps = [], data = [], env = {}, extra_tags = []):
+    """A CppInterOp gtest linking clangCppInterOp via dynamic_deps.
+
+    extra_tags adds to the LLVM tags, so a consumer can select or exclude a
+    test with --test_tag_filters.
+    """
 
     # This macro only expands in @cppinterop, so when that is the main repo
     # (standalone build) the @cppinterop paths are self-references; let them
@@ -164,7 +168,7 @@ def cppinterop_cc_test(name, srcs, extra_copts = [], extra_deps = [], extra_dyna
     cc_test(
         dynamic_deps = ["@cppinterop//:solib"] + extra_dynamic_deps,
         linkopts = ["-ldl", "-lpthread", "-rdynamic"],
-        tags = LLVM_EXTRA_TEST_TAGS,
+        tags = LLVM_EXTRA_TEST_TAGS + extra_tags,
         # Resolves $(CPPINTEROP_JIT_CXX_ARGS) in the env (empty by default).
         toolchains = ["@cppinterop//:jit_cxx_interp_args"],
         **base
