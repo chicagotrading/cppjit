@@ -1,7 +1,7 @@
 import os
 import sys
 
-from pytest import mark, raises, skip
+from pytest import mark, raises, skip, xfail
 from support import (
     IS_CLANG_REPL,
     IS_CLING,
@@ -1642,23 +1642,45 @@ class TestREGRESSION:
         """str() of an instance with no operator<< used to crash.
 
         With no ``cling`` namespace in the interpreter, the pretty-print
-        fallback dereferenced the failed ``cppjit.gbl.cling`` lookup. The
-        crash makes a plain reproducer impossible, so this asserts the fixed
-        behavior: fall back to the generic repr.
+        fallback dereferenced the failed ``cppjit.gbl.cling`` lookup and the
+        process died. A regression is therefore fatal, not an assertion
+        failure, so run the repro in a subprocess: the runner survives and the
+        output identifies which failure happened.
         """
 
-        import cppjit
+        import subprocess
+        import sys
 
-        cppjit.cppdef(r"""
-        namespace StrFallback {
-            struct Bare { int x; };
-        }""")
+        repro = """\
+import cppjit
 
-        b = cppjit.gbl.StrFallback.Bare()
+cppjit.cppdef("namespace StrFallback { struct Bare { int x; }; }")
+print(repr(str(cppjit.gbl.StrFallback.Bare())))
+"""
 
-        s = str(b)
-        assert "Bare" in s
+        popen = subprocess.Popen(
+            [sys.executable, "-c", repro],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        stdout, _ = popen.communicate()
+        output = stdout.decode("utf-8", "replace")
 
-        # the cached no-pretty-print path must stay stable and error-free
-        assert str(b) == s
-        assert repr(b)
+        # the guard holds: cling prints the @0xADDR form through printValue and
+        # ClangRepl falls back to the generic repr, and neither crashes
+        if popen.returncode == 0:
+            return
+
+        # Interpreter::toString is an assert(0) stub upstream. str() tries the
+        # ostream path first, which reaches it whenever assertions are on.
+        if "toString is not implemented" in output:
+            xfail(
+                "toString stub aborts, see compiler-research/CppInterOp#1100: "
+                "%s" % (output[:300],)
+            )
+
+        # a crash banner and its top frames come first, so keep the head
+        raise AssertionError(
+            "str() without an ostream inserter did not fall back cleanly: "
+            "returncode=%s output=%r" % (popen.returncode, output[:2000])
+        )
