@@ -19,11 +19,11 @@ bazel_dep(name = "cppinterop", version = "0.1.0")
 # To build a fork or a newer commit, swap urls/integrity/strip_prefix together.
 archive_override(
     module_name = "cppinterop",
-    integrity = "sha256-a6QQMkWbrfn3fKRlcJV5SJL+Vj9blMXbAe0qp9NoduY=",
+    integrity = "sha256-Oo15vfnyOyZMFWZ/lzm20v/UVc5lWm5HSMcELmOXUrs=",
     patch_strip = 1,
     patches = ["//:bazel-support/cppinterop-cppjit-bazel-module.patch"],
-    strip_prefix = "CppInterOp-8d624c621a4b95e36ff73ac708c85a768287478f",
-    urls = ["https://github.com/compiler-research/CppInterOp/archive/8d624c621a4b95e36ff73ac708c85a768287478f.tar.gz"],
+    strip_prefix = "CppInterOp-9802d61921ad5688ae42e4e628d754fc1192244d",
+    urls = ["https://github.com/compiler-research/CppInterOp/archive/9802d61921ad5688ae42e4e628d754fc1192244d.tar.gz"],
 )
 
 # Dev loop: build a sibling CppInterOp checkout instead of the pinned archive
