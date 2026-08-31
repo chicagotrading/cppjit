@@ -1648,6 +1648,7 @@ class TestREGRESSION:
         output identifies which failure happened.
         """
 
+        import os
         import subprocess
         import sys
 
@@ -1658,8 +1659,15 @@ cppjit.cppdef("namespace StrFallback { struct Bare { int x; }; }")
 print(repr(str(cppjit.gbl.StrFallback.Bare())))
 """
 
+        # A build system can put cppjit on sys.path without PYTHONPATH (bazel
+        # gives the runner a bootstrap instead), so hand the child this
+        # process's own path.
+        env = dict(os.environ)
+        env["PYTHONPATH"] = os.pathsep.join(p for p in sys.path if p)
+
         popen = subprocess.Popen(
             [sys.executable, "-c", repro],
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
