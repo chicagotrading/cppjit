@@ -118,7 +118,9 @@ class TestTEMPLATES:
         gbl = cppjit.gbl
 
         # a template name, unqualified and qualified, plus an alias template
-        assert gbl.ntarg.TakesTmpl["NtPlain"].__cpp_name__ == "ntarg::TakesTmpl<NtPlain>"
+        assert (
+            gbl.ntarg.TakesTmpl["NtPlain"].__cpp_name__ == "ntarg::TakesTmpl<NtPlain>"
+        )
         assert (
             gbl.ntarg.TakesTmpl["ntarg::Alias"].__cpp_name__
             == "ntarg::TakesTmpl<ntarg::Alias>"
