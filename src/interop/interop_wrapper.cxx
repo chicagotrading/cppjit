@@ -60,9 +60,6 @@ static std::set<std::string> g_builtins = {"bool",
                                            "long double",
                                            "void"};
 
-// configuration
-static bool gEnableFastPath = true;
-
 // global initialization -----------------------------------------------------
 namespace {
 
@@ -206,9 +203,6 @@ static void configureInterpreter(const InterOpPaths& Paths) {
     for (const char* a : {"*", "&", "*&", "[]", "*[]"})
       g_builtins.insert(name + a);
   }
-
-  if (getenv("CPPJIT_DISABLE_FASTPATH"))
-    gEnableFastPath = false;
 
   // set opt level (default to 2 if not given; Cling itself defaults to 0)
   int optLevel = 2;
