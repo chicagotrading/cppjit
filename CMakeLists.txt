@@ -29,7 +29,7 @@ endif()
 
 # The LLVM range the pinned CppInterOp supports; update together with the tag.
 set(CPPJIT_LLVM_VERSION_MIN 20)
-set(CPPJIT_LLVM_VERSION_MAX 22)
+set(CPPJIT_LLVM_VERSION_MAX 23)
 
 # Runtime fallback anchor for the dispatch (see cppinterop_paths()): the
 # installed package under scikit-build-core, the build tree otherwise --
