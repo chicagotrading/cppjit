@@ -30,7 +30,7 @@ endif()
 
 # The LLVM range the pinned CppInterOp supports; update together with the tag.
 set(CPPJIT_LLVM_VERSION_MIN 20)
-set(CPPJIT_LLVM_VERSION_MAX 22)
+set(CPPJIT_LLVM_VERSION_MAX 23)
 
 set(_llvm_hints "")
 
