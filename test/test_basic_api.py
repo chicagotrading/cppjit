@@ -66,14 +66,14 @@ class TestBASICAPI:
 
         with tempfile.TemporaryDirectory() as tpath:
             missing = os.path.join(tpath, "libdlerrmissing.so")
-            with raises(RuntimeError, match="No such file or directory"):
+            with raises(RuntimeError, match="libdlerrmissing.*library not found"):
                 cppjit.load_library(missing)
 
-            # a truncated ELF header: found on disk, rejected by the loader
+            # a truncated ELF header: found on disk, rejected before dlopen
             invalid = os.path.join(tpath, "libdlerrinvalid.so")
             with open(invalid, "wb") as out:
                 out.write(b"\x7fELF" + b"\0" * 12)
-            with raises(RuntimeError, match="file too short"):
+            with raises(RuntimeError, match="libdlerrinvalid"):
                 cppjit.load_library(invalid)
 
     def test04_add_include_path(self):
