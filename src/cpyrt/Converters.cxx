@@ -2828,10 +2828,16 @@ static void* PyFunction_AsCPointer(PyObject* pyobject,
       if (!interop::Compile(code.str()))
         return nullptr;
 
-      // TODO: is there no easier way?
-      static interop::TCppScope_t scope =
-          interop::GetScope("__cppjit_internal");
-      const auto& methods = interop::GetMethodsFromName(scope, wname.str());
+      // Look up the namespace on each call. A later incremental Declare can
+      // start a new __cppjit_internal redeclaration chain. A lookup through an
+      // older decl then misses the functions that come after it.
+      interop::TCppScope_t scope = interop::GetScope("__cppjit_internal");
+      const std::vector<interop::TCppMethod_t> methods =
+          interop::GetMethodsFromName(scope, wname.str());
+      if (methods.empty()) {
+        delete ref;
+        return nullptr;
+      }
       wpraddress = interop::GetFunctionAddress(methods[0], false);
       sWrapperReference[wpraddress] = ref;
 

@@ -378,8 +378,9 @@ cpyrt::Utility::FindBinaryOperator(const std::string& lcname,
     // general issue. Some operators are declared as friends only in classes, so
     // then they're not found in the global namespace, so this helper let's the
     // compiler resolve the operator.
-    static interop::TCppScope_t s_intern =
-        interop::GetScope("__cppjit_internal");
+    // Do not cache the scope. The namespace decl does not stay stable across
+    // incremental parses. See PyFunction_AsCPointer in Converters.cxx.
+    interop::TCppScope_t s_intern = interop::GetScope("__cppjit_internal");
     if (s_intern) {
       std::stringstream fname, proto;
       if (strncmp(op, "==", 2) == 0) {
