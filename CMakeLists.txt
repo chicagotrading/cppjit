@@ -13,8 +13,8 @@ option(CPPJIT_ENABLE_CPPINTEROP_TESTS "enable CppInterOp tests" OFF)
 # Experimental: debugging of JIT-compiled C++ with gdb (cppjit.debugger, the
 # gdb extension and the libcppjit hooks). Off, the build has none of it.
 option(CPPJIT_ENABLE_DEBUGGER_SUPPORT "build the experimental debugger support" OFF)
-set(CPPINTEROP_GIT_REPOSITORY "https://github.com/compiler-research/CppInterOp.git" CACHE STRING "")
-set(CPPINTEROP_GIT_TAG "f4adaa6b50542dd564089fe584d407bf15351c97" CACHE STRING "")
+set(CPPINTEROP_GIT_REPOSITORY "https://github.com/chicagotrading/CppInterOp.git" CACHE STRING "")
+set(CPPINTEROP_GIT_TAG "upstreaming/jit-debugging" CACHE STRING "")
 set(CPPINTEROP_SOURCE_DIR "" CACHE PATH
     "Override default CppInterOp built by ExternalProject_Add, with a path to local CppInterOp source")
 
