@@ -7,6 +7,7 @@ using namespace cppjit;
 #include "CPPFunction.h"
 #include "CPPMethod.h"
 #include "CPPOverload.h"
+#include "CPPScope.h"
 #include "PyCallable.h"
 #include "PyStrings.h"
 #include "TemplateProxy.h"
@@ -277,7 +278,8 @@ PyObject* TemplateProxy::Instantiate(const std::string& fname,
       }
 
       // add to class dictionary
-      PyType_Type.tp_setattro(fTI->fPyClass, pycachename, pyol);
+      if (PyType_Type.tp_setattro(fTI->fPyClass, pycachename, pyol) == 0)
+        LogScopeCache(fTI->fPyClass, pycachename);
     }
 
     // Case 3/4: pre-existing method that was either not found b/c the full
@@ -305,7 +307,8 @@ PyObject* TemplateProxy::Instantiate(const std::string& fname,
 
     // Special Case if name was aliased (e.g. typedef in template instantiation)
     if (!exact && !bExactMatch) {
-      PyType_Type.tp_setattro(fTI->fPyClass, pyresname, pyol);
+      if (PyType_Type.tp_setattro(fTI->fPyClass, pyresname, pyol) == 0)
+        LogScopeCache(fTI->fPyClass, pyresname);
     }
 
     // cleanup
