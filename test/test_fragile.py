@@ -648,8 +648,9 @@ class TestFRAGILE:
             }""")
 
     @mark.xfail(
-        condition=IS_CLANG_REPL and CLANG_MAJOR < 23,
-        reason="Macro access fails on clang-repl before LLVM 23",
+        condition=IS_CLANG_REPL and CLANG_MAJOR < 24,
+        reason="Macro access fails on clang-repl, also with LLVM 23.1.1",
+        strict=False,
     )
     def test26_macro(self):
         """Test access to C++ pre-processor macro's"""
