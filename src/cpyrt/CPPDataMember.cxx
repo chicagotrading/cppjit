@@ -29,8 +29,109 @@ enum ETypeDetails {
   kIsArrayType = 0x0004,
   kIsEnumPrep = 0x0008,
   kIsEnumType = 0x0010,
-  kIsCachable = 0x0020
+  kIsCachable = 0x0020,
+  kIsEnumData = 0x0040
 };
+
+//- helpers ------------------------------------------------------------------
+static bool LookupEnumType(CPPDataMember* dm) {
+  // the enum class lives on the proxy of the enum's parent scope; a name that
+  // a function or a variable hides does not give the enum class
+  const interop::TCppScope_t etype =
+      interop::GetScopeFromType(interop::GetDatamemberType(dm->fScope));
+  if (!etype)
+    return false;
+  const std::string ename = interop::GetFinalName(etype);
+  if (ename.empty())
+    return false;
+
+  PyObject* pyscope = CreateScopeProxy(interop::GetParentScope(etype));
+  if (!pyscope)
+    return false;
+  PyObject* pyenum = PyObject_GetAttrString(pyscope, ename.c_str());
+  Py_DECREF(pyscope);
+  if (!pyenum)
+    return false;
+
+  bool ok = false;
+  if (PyType_Check(pyenum) &&
+      PyObject_HasAttr(pyenum, PyStrings::gUnderlying)) {
+    PyObject* pycppname = PyObject_GetAttr(pyenum, PyStrings::gCppName);
+    ok = pycppname && PyUnicode_Check(pycppname) &&
+         interop::GetScopedFinalName(etype) == PyUnicode_AsUTF8(pycppname);
+    Py_XDECREF(pycppname);
+  }
+
+  PyObject* values = ok ? PyDict_New() : nullptr;
+  PyObject* items = nullptr;
+  if (values) {
+    PyObject* dct = PyObject_GetAttr(pyenum, PyStrings::gDict);
+    items = dct ? PyMapping_Items(dct) : nullptr;
+    Py_XDECREF(dct);
+  }
+  if (items) {
+    for (Py_ssize_t i = 0; i < PyList_GET_SIZE(items); ++i) {
+      PyObject* val = PyTuple_GET_ITEM(PyList_GET_ITEM(items, i), 1);
+      if (Py_TYPE(val) == (PyTypeObject*)pyenum &&
+          !PyDict_SetDefault(values, val, val)) {
+        Py_CLEAR(values);
+        break;
+      }
+    }
+    Py_DECREF(items);
+  } else
+    Py_CLEAR(values);
+
+  if (!values) {
+    Py_DECREF(pyenum);
+    return false;
+  }
+  dm->fEnumType = pyenum;
+  dm->fEnumValues = values;
+  return true;
+}
+
+static PyObject* ToEnumInstance(CPPDataMember* dm, PyObject* value) {
+  // return the enumerator of the value, or a new instance as pyval_from_enum
+  // makes; keep the plain value if the enum class is not available
+  if (!dm->fEnumType && !LookupEnumType(dm)) {
+    PyErr_Clear();
+    dm->fFlags &= ~kIsEnumData;
+    return value;
+  }
+
+  PyTypeObject* pytype = (PyTypeObject*)dm->fEnumType;
+  const bool isStr = PyType_IsSubtype(pytype, &PyUnicode_Type);
+  PyTypeObject* btype = isStr ? &PyUnicode_Type : &PyLong_Type;
+
+  // char-sized integers can come back as a one-character string
+  if (!isStr && PyUnicode_Check(value) && PyUnicode_GetLength(value) == 1) {
+    PyObject* ival = PyLong_FromLong((long)PyUnicode_ReadChar(value, 0));
+    if (!ival) {
+      PyErr_Clear();
+      return value;
+    }
+    Py_DECREF(value);
+    value = ival;
+  }
+  if (isStr ? !PyUnicode_Check(value) : !PyLong_Check(value))
+    return value;
+
+  PyObject* result = PyDict_GetItemWithError(dm->fEnumValues, value);
+  if (result) {
+    Py_INCREF(result);
+  } else if (!PyErr_Occurred()) {
+    PyObject* args = PyTuple_Pack(1, value);
+    result = args ? btype->tp_new(pytype, args, nullptr) : nullptr;
+    Py_XDECREF(args);
+  }
+  if (!result) {
+    PyErr_Clear();
+    return value;
+  }
+  Py_DECREF(value);
+  return result;
+}
 
 //= cpyrt data member as Python property behavior =========================
 static PyObject* dm_get(CPPDataMember* dm, CPPInstance* pyobj,
@@ -111,6 +212,9 @@ static PyObject* dm_get(CPPDataMember* dm, CPPInstance* pyobj,
         (dm->fFlags & kIsArrayType) ? &address : address);
     if (!result)
       return result;
+
+    if (dm->fFlags & kIsEnumData)
+      return ToEnumInstance(dm, result);
 
     // low level views are expensive to create, so cache them on the object
     // instead
@@ -213,6 +317,8 @@ static CPPDataMember* dm_new(PyTypeObject* pytype, PyObject*, PyObject*) {
   dm->fEnclosingScope = nullptr;
   dm->fDescription = nullptr;
   dm->fDoc = nullptr;
+  dm->fEnumType = nullptr;
+  dm->fEnumValues = nullptr;
 
   new (&dm->fFullType) std::string{};
 
@@ -227,6 +333,8 @@ static void dm_dealloc(CPPDataMember* dm) {
     delete dm->fConverter;
   Py_XDECREF(dm->fDescription); // never exposed so no GC necessary
   Py_XDECREF(dm->fDoc);
+  Py_XDECREF(dm->fEnumType);
+  Py_XDECREF(dm->fEnumValues);
 
   dm->fFullType.~string();
 
@@ -360,8 +468,10 @@ void cpyrt::CPPDataMember::Set(interop::TCppScope_t scope,
     fFullType = interop::GetTypeAsString(type);
 
     // Get the integer type if it's an enum
-    if (interop::IsEnumType(type))
+    if (interop::IsEnumType(type)) {
       type = interop::ResolveType(type);
+      fFlags |= kIsEnumData;
+    }
 
     if (interop::IsConstVar(fScope))
       fFlags |= kIsConstData;
@@ -371,7 +481,7 @@ void cpyrt::CPPDataMember::Set(interop::TCppScope_t scope,
   std::vector<dim_t> dims(ldims.begin(), ldims.end());
 
   if (!dims.empty())
-    fFlags |= kIsArrayType;
+    fFlags = (fFlags | kIsArrayType) & ~kIsEnumData;
 
   if (dims.empty())
     fConverter = CreateConverter(type, 0);
