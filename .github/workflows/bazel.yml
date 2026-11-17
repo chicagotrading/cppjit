@@ -8,7 +8,7 @@ name: bazel (best-effort)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, ctc-master]
   push:
     branches: [main]
 
