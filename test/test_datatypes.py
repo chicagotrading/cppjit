@@ -3008,6 +3008,176 @@ class TestDATATYPES:
                 np.array([1 + 2j, 3 + 4j], dtype=np.complex128),
             )
 
+    def test59_enum_typed_variables(self):
+        """Variables of enum type return instances of the enum class"""
+
+        import cppjit
+        import cppjit.reflex as r
+
+        cppjit.cppdef(r"""\
+        namespace EnumVars {
+            enum class Side { BUY = 1, SELL = 2 };
+            enum Plain { P_ONE = 1, P_TWO = 2 };
+            enum class Small : unsigned char { S_ZERO = 0, S_BIG = 200 };
+            enum class Wide : long { W_ONE = 1, W_HUGE = 1L << 40 };
+            enum Flags { F_ONE = 1, F_TWO = 2 };
+            enum class Letter : char { L_A = 'a', L_B = 'b' };
+            typedef enum _Aliased { A_ONE = 5 } Aliased;
+            enum { ANON_ONE = 7 };
+            enum Hidden { H_ONE = 1 };
+            void Hidden() {}
+
+            constexpr Side kSide = Side::SELL;
+            const Plain kPlain = P_TWO;
+            Side gSide = Side::BUY;
+            Small gSmall = Small::S_BIG;
+            Wide gWide = Wide::W_HUGE;
+            Flags gFlags = Flags(F_ONE | F_TWO);
+            Letter gLetter = Letter::L_A;
+            Aliased gAliased = A_ONE;
+            decltype(ANON_ONE) gAnon = ANON_ONE;
+            enum Hidden gHidden = H_ONE;
+
+            struct Holder {
+                static constexpr Side s_side = Side::SELL;
+                static Plain s_plain;
+                Side m_side = Side::BUY;
+                Small m_small = Small::S_BIG;
+                Wide m_wide = Wide::W_ONE;
+            };
+            Plain Holder::s_plain = P_ONE;
+
+            int side_value() { return (int)gSide; }
+            int holder_side(const Holder& h) { return (int)h.m_side; }
+        }""")
+
+        ns = cppjit.gbl.EnumVars
+        h = ns.Holder()
+
+        # the stored value maps back to its enumerator
+        assert ns.kSide is ns.Side.SELL
+        assert ns.kPlain is ns.Plain.P_TWO
+        assert ns.gSide is ns.Side.BUY
+        assert ns.gSmall is ns.Small.S_BIG
+        assert ns.gWide is ns.Wide.W_HUGE
+        assert ns.gLetter is ns.Letter.L_A
+        # the typedef has its own proxy class; the value has the tag's class
+        assert ns.gAliased is ns._Aliased.A_ONE
+        assert ns.gAliased == ns.Aliased.A_ONE
+        assert ns.Holder.s_side is ns.Side.SELL
+        assert h.s_side is ns.Side.SELL
+        assert ns.Holder.s_plain is ns.Plain.P_ONE
+        assert h.m_side is ns.Side.BUY
+        assert h.m_small is ns.Small.S_BIG
+        assert h.m_wide is ns.Wide.W_ONE
+
+        # a value without an enumerator still has the enum type
+        assert type(ns.gFlags) is ns.Flags
+        assert ns.gFlags == 3
+
+        # an anonymous enum has no class, so its variable stays a plain int
+        assert type(ns.gAnon) is int
+        assert ns.gAnon == 7
+        # a function hides the enum name, so that variable stays a plain int too
+        assert type(ns.gHidden) is int
+        assert ns.gHidden == 1
+
+        # the declared type does not change
+        assert ns.Holder.__dict__["m_side"].__cpp_reflex__(r.TYPE) == "EnumVars::Side"
+
+        # writable variables take enum instances and plain ints
+        ns.gSide = ns.Side.SELL
+        assert ns.gSide is ns.Side.SELL
+        assert ns.side_value() == 2
+        ns.gSide = 1
+        assert ns.gSide is ns.Side.BUY
+        assert ns.side_value() == 1
+
+        ns.gSmall = ns.Small.S_ZERO
+        assert ns.gSmall is ns.Small.S_ZERO
+        ns.gSmall = 200
+        assert ns.gSmall is ns.Small.S_BIG
+
+        ns.gLetter = ns.Letter.L_B
+        assert ns.gLetter is ns.Letter.L_B
+        ns.gLetter = "a"
+        assert ns.gLetter is ns.Letter.L_A
+
+        ns.Holder.s_plain = ns.Plain.P_TWO
+        assert ns.Holder.s_plain is ns.Plain.P_TWO
+        ns.Holder.s_plain = 1
+        assert ns.Holder.s_plain is ns.Plain.P_ONE
+
+        h.m_side = ns.Side.SELL
+        assert h.m_side is ns.Side.SELL
+        assert ns.holder_side(h) == 2
+        h.m_side = 1
+        assert h.m_side is ns.Side.BUY
+        assert ns.holder_side(h) == 1
+
+        h.m_wide = 1 << 40
+        assert h.m_wide is ns.Wide.W_HUGE
+
+        # const variables stay read-only
+        raises(TypeError, setattr, ns, "kSide", ns.Side.BUY)
+        raises(TypeError, setattr, ns, "kPlain", 1)
+
+    def test60_enum_typed_variables_as_ints(self):
+        """Enum-typed variables still work where ints are used"""
+
+        import copy
+        import json
+        import pickle
+
+        import cppjit
+
+        cppjit.cppdef(r"""\
+        namespace EnumVarsInt {
+            enum class Side { BUY = 1, SELL = 2 };
+            enum Flags { F_ONE = 1, F_TWO = 2 };
+            constexpr Side kSide = Side::SELL;
+            Flags gFlags = Flags(F_ONE | F_TWO);
+            enum class Toggle : bool { OFF = false, ON = true };
+            Toggle gToggle = Toggle::ON;
+        }""")
+
+        ns = cppjit.gbl.EnumVarsInt
+        x = ns.kSide
+
+        assert isinstance(x, int)
+        assert type(x) is not int
+        assert x == 2 and 2 == x and x != 1
+        assert x < 3 and x > 1
+        assert int(x) == 2 and type(int(x)) is int
+        assert x + 1 == 3 and x * 2 == 4 and x | 1 == 3
+        assert type(x + 1) is int and type(-x) is int
+        assert hash(x) == hash(2)
+        assert {2: "sell"}[x] == "sell"
+        assert {x: "sell"}[2] == "sell"
+        assert [10, 11, 12][x] == 12
+        assert f"{x}" == "2"
+        assert f"{x:03d}" == "002"
+        assert str(x) == "2"
+        assert "%d" % x == "2"
+        assert repr(x) == repr(ns.Side.SELL)
+        assert json.dumps(x) == "2"
+        assert copy.deepcopy(x) == 2 and type(copy.deepcopy(x)) is ns.Side
+
+        # a value without an enumerator has the class name in its repr
+        f = ns.gFlags
+        assert f == 3 and str(f) == "3"
+        assert "EnumVarsInt::Flags" in repr(f)
+
+        # a bool-based enum is an int subclass, as its enumerators are
+        t = ns.gToggle
+        assert t is ns.Toggle.ON
+        assert t == True and bool(t) and t is not True
+        assert json.dumps(t) == "1"
+
+        # pickling keeps the enum class
+        y = pickle.loads(pickle.dumps(x))
+        assert type(y) is ns.Side and y == 2
+
 
 class TestANONENUM:
     def test01_anonymous_enum_repeated_access(self):

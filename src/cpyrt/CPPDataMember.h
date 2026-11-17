@@ -27,6 +27,8 @@ public: // public, as the python C-API works with C structs
   interop::TCppScope_t fEnclosingScope;
   PyObject* fDescription;
   PyObject* fDoc;
+  PyObject* fEnumType;   // enum class of an enum-typed variable
+  PyObject* fEnumValues; // value -> enumerator of fEnumType
 
   // TODO: data members should have a unique identifier, just like methods,
   // so that reflection information can be recovered post-initialization
